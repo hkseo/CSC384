@@ -83,10 +83,11 @@ def prop_FC(csp, newVar=None):
     
     #This will keep track of all the pruned (variable,value)
     pru = []    
-    
-    #If the newVar is none, check all the variables
+        
+    #If the newVar is none, check all the constraints
     if not newVar:
         for c in csp.get_all_cons():
+            
             #Check if the contraint has only one uninstantiated variable
             if c.get_n_unasgn() == 1:
                 
@@ -142,13 +143,13 @@ def prop_FC(csp, newVar=None):
             var = c.get_unasgn_vars()
             
             #Current domain of the variable
-            values = var.cur_domain()
+            values = var[0].cur_domain()
             
             #Traverse through the domain of the variable                                 
             for value in values:
                 
                 #Assign the varaible with the value for checking
-                var.assign(value)
+                var[0].assign(value)
                 
                 #List of assigned value for each variables
                 vals = []
@@ -163,18 +164,18 @@ def prop_FC(csp, newVar=None):
                     vals.append(v.get_assigned_value())                
                 
                 #Unassign the variable to restore cur_dom
-                var.unassign()
+                var[0].unassign()
                 
                 #Check the constraint using the assigned values
                 if not c.check(vals):
                     
                     #If the constraint doesn't work, prune the value
-                    var.prune_value(value)
+                    var[0].prune_value(value)
                     
                     #Recording pruned (variable, value) tuples
-                    pru.append((var, value))
+                    pru.append((var[0], value))
 
-            if var.cur_domain_size() == 0:
+            if var[0].cur_domain_size() == 0:
                 return (False, pru)
             
     return (True, pru)
@@ -183,4 +184,86 @@ def prop_GAC(csp, newVar=None):
     '''Do GAC propagation. If newVar is None we do initial GAC enforce 
        processing all constraints. Otherwise we do GAC enforce with
        constraints containing newVar on GAC Queue'''
-#IMPLEMENT
+    
+    #Implemented a Queue
+    q = Queue()
+    
+    #This will keep track of all the pruned (variable,value)
+    pru = []    
+        
+    #If the newVar is none, check all the constraints
+    if not newVar:
+        
+        for c in csp.get_all_cons():    
+            
+            #Enqueue all the constraints
+            q.enqueue(c)
+    else:
+        
+        #For all the contraints that include the new instantiated variable
+        for c in csp.get_cons_with_var(newVar):        
+            
+            #Enqueue the constraints that have newVar in it
+            q.enqueue(c)            
+    
+    #Loop until queue is empty
+    while not q.isEmpty():   
+        
+        c = q.dequeue()    
+        
+        #Scope of the constraint
+        vars = c.get_scope()
+        
+        #For each variables in the scope
+        for v in vars:        
+            
+            #for each values in the domain of the variable
+            values = v.cur_domain()
+                                       
+            for value in values:            
+                
+                #If the variable, value tuple is inconsistent
+                if not c.has_support(v,value):
+                    
+                    #Prune the value from the domain
+                    v.prune_value(value)
+                    
+                    #Recording pruned (variable, value) tuples
+                    pru.append((v, value))                    
+                    
+                    #If the domain of the variable is empty, return False
+                    if v.cur_domain_size() == 0:
+                        
+                        return (False, pru)
+                    
+                    else:
+                        
+                        #For the constraints that have the pruned variable in its scope
+                        for con in csp.get_cons_with_var(v):
+                        
+                            #For the constraints that are not in the queue
+                            if con not in q.items:
+                                
+                                q.enqueue(con)
+    
+    return (True, pru)                            
+                        
+                        
+    
+    
+
+class Queue:
+    def __init__(self):
+        self.items = []
+
+    def isEmpty(self):
+        return self.items == []
+
+    def enqueue(self, item):
+        self.items.insert(0,item)
+
+    def dequeue(self):
+        return self.items.pop()
+
+    def size(self):
+        return len(self.items)
